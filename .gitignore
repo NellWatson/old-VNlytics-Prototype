@@ -17,6 +17,16 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
+# Ren'Py Filed
+*.rpyc
+*.bak
+
+log.txt
+
+saves
+cache
+tmp
+
 # =========================
 # Operating System Files
 # =========================

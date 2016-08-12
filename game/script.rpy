@@ -48,5 +48,6 @@ label start:
             "You choose second"
 
     $ telemetry.sync()
+    $ telemetry.end()
 
     return

@@ -2,7 +2,7 @@ init python in telemetry:
     
     import urllib, urllib2, json
 
-    host = "http://159.203.183.226:3000/v1/"
+    host = "http://localhost:3000/v1/"
     project_id = "TestGame"
     game_id = ""
 
@@ -118,6 +118,29 @@ init python in telemetry:
 
         session += 1
 
+    def end():
+
+        # Save the url locally since we are in a different thread now
+
+        url = host + project_id + "/" + game_id + "/end/"
+        renpy.invoke_in_thread(actual_end, url=url)
+
+    def actual_end(url):
+        data = {
+            "ending": "None",
+            "play_time": 100
+            }
+
+        data = json.dumps(data)
+
+        try:
+            r = urllib2.Request(url, data, { "Content-Type": "application/json" })
+            response = urllib2.urlopen(r)
+        except Exception, e:
+            print str(e)
+            return "No Internet Connection"
+
+        print response.read()
 
 init python:
 
