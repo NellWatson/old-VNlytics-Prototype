@@ -2,7 +2,7 @@ init python in telemetry:
     
     import urllib, urllib2, json
 
-    host = "http://localhost:3000/v1/"
+    host = "http://159.203.183.226:3000/v1/"
     project_id = "TestGame"
     game_id = ""
 
