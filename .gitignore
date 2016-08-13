@@ -22,6 +22,8 @@ $RECYCLE.BIN/
 *.bak
 
 log.txt
+traceback.txt
+errors.txt
 
 saves
 cache

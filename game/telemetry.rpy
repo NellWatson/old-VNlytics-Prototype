@@ -2,7 +2,7 @@ init python in telemetry:
     
     import urllib, urllib2, json
 
-    host = "http://159.203.183.226:3000/v1/"
+    host = "http://localhost:3000/v1/"
     project_id = "TestGame"
     game_id = ""
 
@@ -15,10 +15,13 @@ init python in telemetry:
         Start the actual syncing process in a thread so the game doesn't hang.
         """
 
-        renpy.invoke_in_thread(start_setup)
+        renpy.invoke_in_thread(_setup)
 
-    def start_setup():
-        print "Here"
+    def _setup():
+        """
+        Queries the server to generate a game id that will be used for saving game data.
+        """
+
         global game_id
     
         import platform
@@ -45,9 +48,11 @@ init python in telemetry:
 
         game_id = response.read()[1:-1]
         renpy.store.persistent.multiple_id = True
+        renpy.store.persistent.seen_choice_labels[game_id] = set()
+        renpy.store.persistent.game_pass[game_id] = 0
 
     def collect(data, kind):
-        global collected_data
+        global collected_data, game_pass
 
         day = str(renpy.store.day)
 
@@ -61,6 +66,15 @@ init python in telemetry:
                 entry["choices"] = [data]
             else:
                 entry["choices"].append(data)
+
+            # If the player has previously seen this choice, update the game_pass variable.
+            print renpy.store.persistent.seen_choice_labels[game_id]
+
+            if data["label"] in renpy.store.persistent.seen_choice_labels[game_id]:
+                renpy.store.persistent.game_pass[game_id] += 1
+            else:
+                renpy.store.persistent.seen_choice_labels[game_id].update({ data["label"] })
+
         elif kind not in entry["data"]:
             entry["data"][kind] = [data]
         else:
@@ -75,16 +89,18 @@ init python in telemetry:
         # the collected_data dict can change while we are syncing.
 
         url = host + project_id + "/" + game_id + "/"
-        renpy.invoke_in_thread(start_sync, available_data=collected_data, url=url)
+        renpy.invoke_in_thread(_sync, available_data=collected_data, url=url)
 
-    def start_sync(available_data, url):
+    def _sync(available_data, url):
+        global player_data
 
         if not check_internet():
             return "No Internet Connection"
 
         for entry, stats in available_data.items():
             data = {
-                "day": entry
+                "day": entry,
+                "game_pass": renpy.store.persistent.game_pass[game_id]
                 }
 
             if "choices" in stats:
@@ -108,7 +124,7 @@ init python in telemetry:
     def check_internet():
 
         try:
-            response=urllib2.urlopen(host, timeout=10)
+            urllib2.urlopen(host, timeout=10)
             return True
         except urllib2.URLError:
             return False
@@ -123,9 +139,9 @@ init python in telemetry:
         # Save the url locally since we are in a different thread now
 
         url = host + project_id + "/" + game_id + "/end/"
-        renpy.invoke_in_thread(actual_end, url=url)
+        renpy.invoke_in_thread(_end, url=url)
 
-    def actual_end(url):
+    def _end(url):
         data = {
             "ending": "None",
             "play_time": 100
@@ -142,6 +158,49 @@ init python in telemetry:
 
         print response.read()
 
+    def compare_data():
+
+        if not check_internet():
+            return "No Internet Connection"
+
+        renpy.invoke_in_thread(_compare_data, project_id=project_id, game_id=game_id)
+
+    def _compare_data(project_id, game_id):
+        game_url = host + project_id + "/" + game_id + "/get"
+        project_url = host + project_id + "/choices"
+        
+        _data = {}
+        _chosen_captions = []
+
+        response = urllib2.urlopen(game_url)
+        game_data = json.load(response)
+
+        response = urllib2.urlopen(project_url)
+        project_data = json.load(response)
+
+        # Find out which choices the player made
+        for i in game_data:
+            for j in i["choices"]:
+                _chosen_captions.append(( j["label"], j["caption"] ))
+
+        for i in project_data:
+            _temp = {}
+            _total = 0
+
+            for j in i["choices"]:
+                value = False
+                _total += j["count"]
+
+                if (i["label"], j["caption"]) in _chosen_captions:
+                    value = True
+                
+                _temp[ j["caption"] ] = [ j["count"], value]
+
+            _temp["total"] = _total
+            _data[ i["label"] ] = _temp
+
+        renpy.store.compare_data_store = _data
+
 init python:
 
     class CollectTelemetry(Action):
@@ -153,8 +212,14 @@ init python:
         def __call__(self):
             telemetry.collect(self.data, self.kind)
 
-    if not hasattr(persistent, "multiple_id"):
+    if not persistent.multiple_id:
         persistent.multiple_id = False
+
+    if not persistent.seen_choice_labels:
+        persistent.seen_choice_labels = {}
+
+    if not persistent.game_pass:
+        persistent.game_pass = {}
 
     def label_callback(name, via):
         store.present = name
