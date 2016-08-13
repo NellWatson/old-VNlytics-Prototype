@@ -80,7 +80,7 @@ screen choice(items):
                 if action:
 
                     button:
-                        action [action, Function(telemetry.collect, data={"caption": caption, "label": present}, kind="choices")]
+                        action [ Function(telemetry.collect, data={"caption": caption, "label": present}, kind="choices"), action ]
                         style "menu_choice_button"
 
                         text caption style "menu_choice"

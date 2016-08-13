@@ -18,9 +18,6 @@ default show_order = [ "first_choice", "second_choice", "third_choice" ]
 label start:
     $ telemetry.setup()
 
-    $ persistent.multiple_id = True
-    $ print telemetry.game_id
-
     e "You've created a new Ren'Py game."
     e "Once you add a story, pictures, and music, you can release it to the world!"
     e "Here comes your first Choice."
@@ -50,11 +47,12 @@ label start:
     $ telemetry.sync()
 
     "Thank you for playing the game."
-
-    $ telemetry.end()
+    "Now we will show your choices compare with everyone else."
     $ telemetry.compare_data()
 
     call screen check
+
+    $ telemetry.end()
 
     return
 
@@ -63,7 +61,7 @@ screen check():
     add Solid("#00000050")
 
     if not compare_data_store:
-        text "Please while we fetch the data" size 60 xalign 0.5 yalign 0.5
+        text "Please while we fetch the data" size 40 xalign 0.5 yalign 0.5
     else:
         vbox:
             spacing 10
@@ -71,24 +69,25 @@ screen check():
             yalign 0.5
                 
             for i in show_order:
-                $ c = compare_data_store[i]
+                if i in compare_data_store:
+                    $ c = compare_data_store[i]
 
-                button:
-                    text i size 30 bold True underline True
-                    background "#00000000"
+                    button:
+                        text i size 30 bold True underline True
+                        background "#00000000"
 
-                vbox:
-                    spacing 15
-                    xpos 80
+                    vbox:
+                        spacing 15
+                        xpos 80
 
-                    for j in c:
-                        if j != "total":
-                            $ _percent = round(c[j][0] * 100.00 / c["total"], 2)
+                        for j in c:
+                            if j != "total":
+                                $ _percent = round(c[j][0] * 100.00 / c["total"], 2)
 
-                            if c[j][1]:
-                                text "* " + j + " -- " + str(_percent) + "%" underline True
-                            else:
-                                text j + " -- " + str(_percent) + "%"
+                                if c[j][1]:
+                                    text "* " + j + " -- " + str(_percent) + "%" underline True
+                                else:
+                                    text j + " -- " + str(_percent) + "%"
 
     textbutton _("return"):
         action Return()

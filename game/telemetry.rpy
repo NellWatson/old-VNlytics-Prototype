@@ -7,8 +7,10 @@ init python in telemetry:
     game_id = ""
 
     collected_data = {}
+    last_synced_block = {}
 
     session = 1
+    status = ""
 
     def setup():
         """
@@ -22,15 +24,17 @@ init python in telemetry:
         Queries the server to generate a game id that will be used for saving game data.
         """
 
-        global game_id
+        global game_id, status
     
         import platform
 
+        status = "setup"
         os = platform.system()
         resolution = str((renpy.display.get_info().current_w, renpy.display.get_info().current_h))
         render = renpy.get_renderer_info()["renderer"]
 
         if not check_internet():
+            game_id = "placeholder"
             return "No Internet connection."
 
         payload = {
@@ -51,9 +55,22 @@ init python in telemetry:
         renpy.store.persistent.seen_choice_labels[game_id] = set()
         renpy.store.persistent.game_pass[game_id] = 0
 
-    def collect(data, kind):
-        global collected_data, game_pass
+        status = ""
 
+    def collect(data, kind):
+        global collected_data, game_pass, status, sync_now
+
+        while status == "setup":
+            continue
+
+        # If for some reason no game_id has been generated, generate one.
+        if game_id == "placeholder":
+            setup()
+            if game_id != "placeholder":
+                pass
+                # ToDo: Replace placeholder with the new_id
+
+        status = "collecting"
         day = str(renpy.store.day)
 
         if day not in collected_data:
@@ -68,8 +85,6 @@ init python in telemetry:
                 entry["choices"].append(data)
 
             # If the player has previously seen this choice, update the game_pass variable.
-            print renpy.store.persistent.seen_choice_labels[game_id]
-
             if data["label"] in renpy.store.persistent.seen_choice_labels[game_id]:
                 renpy.store.persistent.game_pass[game_id] += 1
             else:
@@ -80,6 +95,8 @@ init python in telemetry:
         else:
             entry["data"][kind].append(data)
 
+        status = ""
+
     def sync():
         """
         Start the actual syncing process in a thread so the game doesn't hang.
@@ -88,14 +105,34 @@ init python in telemetry:
         # Save the collected data and url locally since we are in a different thread now and
         # the collected_data dict can change while we are syncing.
 
+        while status:
+            continue
+
+        if game_id == "placeholder":
+            setup()
+            return
+
         url = host + project_id + "/" + game_id + "/"
         renpy.invoke_in_thread(_sync, available_data=collected_data, url=url)
 
     def _sync(available_data, url):
-        global player_data
+
+        global status, last_synced_block
+
+        status = "syncing"
 
         if not check_internet():
             return "No Internet Connection"
+
+        # This is to prevent values from being resubmitting in case when the player
+        # uses a combination of skipping and super fast clicking
+        for i in last_synced_block.keys():
+            if i in available_data:
+                if available_data[i]["choices"] == last_synced_block[i]["choices"]:
+                    del available_data[i]
+
+        # Store the current data
+        last_synced_block = available_data
 
         for entry, stats in available_data.items():
             data = {
@@ -116,12 +153,24 @@ init python in telemetry:
                 response = urllib2.urlopen(r)
             except Exception, e:
                 print str(e)
+                last_synced_block = {}
                 return "No Internet Connection"
 
             print response.read()
-            del collected_data[entry]
+
+            # When two choices are placed back to back and player fast clicks + skips through them,
+            # the entry will be removed but it's reference will remain in one of the threads.
+            try:
+                del collected_data[entry]
+            except KeyError:
+                pass
+
+        status = ""
 
     def check_internet():
+        """
+        Returns True if Internet connection is present, otherwise, returns False
+        """
 
         try:
             urllib2.urlopen(host, timeout=10)
@@ -137,6 +186,10 @@ init python in telemetry:
     def end():
 
         # Save the url locally since we are in a different thread now
+
+        if not game_id:
+            setup()
+            return
 
         url = host + project_id + "/" + game_id + "/end/"
         renpy.invoke_in_thread(_end, url=url)
