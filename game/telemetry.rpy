@@ -132,7 +132,7 @@ init python in telemetry:
                     del available_data[i]
 
         # Store the current data
-        last_synced_block = available_data
+        last_synced_block = available_data.copy()
 
         for entry, stats in available_data.items():
             data = {
