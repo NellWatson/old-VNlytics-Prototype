@@ -22,7 +22,7 @@ init -1 python hide:
     # These control the name and version of the game, that are reported
     # with tracebacks and other debugging logs.
     config.name = "VNlytics Prototype"
-    config.version = "0.1.2.0813"
+    config.version = "0.1.2.0815"
 
     #########################################
     # Themes

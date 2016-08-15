@@ -63,15 +63,16 @@ init python in telemetry:
         while status == "setup":
             continue
 
+        status = "collecting"
+        day = str(renpy.store.day)
+
         # If for some reason no game_id has been generated, generate one.
         if game_id == "placeholder":
             setup()
-            if game_id != "placeholder":
-                pass
-                # ToDo: Replace placeholder with the new_id
 
-        status = "collecting"
-        day = str(renpy.store.day)
+            if game_id != "placeholder":
+                collected_data[game_id] = collected_data["placeholder"]
+                del collected_data["placeholder"]
 
         if day not in collected_data:
             collected_data[day] = {}
@@ -187,7 +188,7 @@ init python in telemetry:
 
         # Save the url locally since we are in a different thread now
 
-        if not game_id:
+        if game_id == "placeholder":
             setup()
             return
 

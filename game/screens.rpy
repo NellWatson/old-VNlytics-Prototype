@@ -76,11 +76,12 @@ screen choice(items):
             spacing 2
 
             for caption, action, chosen in items:
+                $ print action
 
                 if action:
 
                     button:
-                        action [ Function(telemetry.collect, data={"caption": caption, "label": present}, kind="choices"), action ]
+                        action [ If("__no_save" in present, true=NullAction(), false=Function(telemetry.collect, data={"caption": caption, "label": present}, kind="choices")), action ]
                         style "menu_choice_button"
 
                         text caption style "menu_choice"
